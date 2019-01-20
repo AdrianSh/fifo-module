@@ -1,0 +1,1 @@
+cmd_/media/adriansh/LIN/PrFinal/PROYECTO/fifoproc/KERN_SRC/fifoproc.ko := ld -r -m elf_x86_64  -z max-page-size=0x200000 -T ./scripts/module-common.lds --build-id  -o /media/adriansh/LIN/PrFinal/PROYECTO/fifoproc/KERN_SRC/fifoproc.ko /media/adriansh/LIN/PrFinal/PROYECTO/fifoproc/KERN_SRC/fifoproc.o /media/adriansh/LIN/PrFinal/PROYECTO/fifoproc/KERN_SRC/fifoproc.mod.o ;  true

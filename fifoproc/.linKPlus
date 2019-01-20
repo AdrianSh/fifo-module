@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<General-info>
+    <Driver-name>fifoproc</Driver-name>
+    <Toolchain>Linux GCC</Toolchain>
+    <Architecture>x86_64</Architecture>
+    <hostMachineKernel>false</hostMachineKernel>
+    <Kernel-Version>/usr/src/linux-headers-4.9.111-mikernel</Kernel-Version>
+    <Licence>GPL</Licence>
+    <Author-name>Adrian Sanchez</Author-name>
+    <location>/media/adriansh/LIN/PrFinal/PROYECTO</location>
+    <wizardType>false</wizardType>
+    <wizardTypeInfo>false</wizardTypeInfo>
+</General-info>
