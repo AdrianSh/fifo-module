@@ -78,6 +78,22 @@ void add_item_list(struct list_head *list, proc_entry_data *data) {
 	spin_unlock(&sp_entrylist);
 }
 
+int check_exist_item_list(struct list_head *list, char * fileName){
+	proclist_item *aux, *elem = NULL;
+	int ret = -1;
+
+	spin_lock(&sp_entrylist);
+	list_for_each_entry_safe(elem, aux, list, links) {
+		if (strcmp(elem->data->fileName, fileName) == 0) {
+			printk(KERN_INFO "FifoProc-check-exist-item   %s existia %s, %i!\n", fileName, elem->data->fileName, strcmp(elem->data->fileName, fileName));
+			ret = 0;
+		}
+	}
+	spin_unlock(&sp_entrylist);
+
+	return ret;
+}
+
 void remove_items_list(struct list_head *list, char * fileName) {
 	proclist_item *aux, *elem = NULL;
 
@@ -332,25 +348,38 @@ static int createProc(char * entryName, int add_item_to_list) {
 
 	procItem = vmalloc(sizeof(proc_required_data));
 
+	printk(KERN_INFO "FifoProc-createProc: inicializando semaforos! %s\n", entryName);
 	sema_init(&(procItem->mtx), 1); // Simula mutex
 	sema_init(&(procItem->prod), 0); // Cola de espera
 	sema_init(&(procItem->cons), 0); // Cola de espera
+
+	printk(KERN_INFO "FifoProc-createProc: inicializando contadores!\n");
 	procItem->cons_count = procItem->prod_count = procItem->nr_prod_waiting
 			= procItem->nr_cons_waiting = 0;
+
+	printk(KERN_INFO "FifoProc-createProc: inicializando buffer circular!\n");
 	ret = kfifo_alloc(&(procItem->cbuffer), max_size, GFP_KERNEL);
 
 	if (ret == 0) {
+		printk(KERN_INFO "FifoProc-createProc: inicializando la estructura de proceso!\n");
 		procEntry = vmalloc(sizeof(proc_entry_data));
-		strlcpy(procEntry->fileName, entryName, strlen(entryName));
+
+		printk(KERN_INFO "FifoProc-createProc: copiando nombre de entrada: %s! (%p)\n", entryName, entryName);
+
+		procEntry->fileName = entryName;
+
+		printk(KERN_INFO "FifoProc-createProc: asignando datos!\n");
 		procEntry->data = procItem;
 
+		printk(KERN_INFO "FifoProc-createProc: registrando en lista!\n");
 		if(add_item_to_list == 1)
 			add_item_list(&entrylist, procEntry);
 		else
 			default_proc_entry = procEntry;
 
-		proc_entry
-				= proc_create_data(procEntry->fileName, 0666, fifo_dir, &proc_entry_fops, procItem);
+		printk(KERN_INFO "FifoProc-Control: Se va crear la entrada de %s\n", procEntry->fileName);
+
+		proc_entry = proc_create_data(procEntry->fileName, 0666, fifo_dir, &proc_entry_fops, procItem);
 
 		if (proc_entry == NULL)
 			ret = -ENOMEM;
@@ -365,13 +394,14 @@ static void deleteProc(proc_entry_data * entryData) {
 	kfifo_free(&(entryData->data->cbuffer));
 	vfree(entryData->data);
 	remove_proc_entry(entryData->fileName, fifo_dir);
-	vfree(entryData->fileName);
+	// vfree(entryData->fileName);
 	vfree(entryData);
 }
 
 static ssize_t fifocontrolwrite(struct file *filp, const char __user *buf,
 		size_t len, loff_t *off) {
 	char *inputBuffer = NULL;
+	char *fileName;
 	char operation[8], entryName[256]; // 255 es la longitud maxima para la mayoria de fs
 	ssize_t ret = 0;
 
@@ -405,10 +435,18 @@ static ssize_t fifocontrolwrite(struct file *filp, const char __user *buf,
 						printk(
 								KERN_INFO "FifoProc-Control: Creando fifo: '%s'\n",
 								entryName);
-						ret = createProc(entryName, 1);
-						printk(
-								KERN_INFO "FifoProc-Control: Proceso de creacion: '%zd'\n",
-								ret);
+
+						ret = check_exist_item_list(&entrylist, entryName);
+						if(ret < 0){
+							fileName = vmalloc(strlen(entryName));
+							strcpy(fileName, entryName);
+							ret = createProc(fileName, 1);
+							printk(KERN_INFO "FifoProc-Control: Proceso de creacion: '%zd'\n", ret);
+							ret = len;
+						} else {
+							printk(KERN_INFO "FifoProc-Control: Ya existia: '%s'\n", entryName);
+							ret = -EINVAL;
+						}
 					} else {
 						spin_unlock(&sp_entrylist);
 						ret = -ENOMEM;
@@ -447,17 +485,20 @@ MODULE_PARM_DESC(max_entries, "Tamaño máximo en bytes de buffers circulares as
 
 int fifo_init(void) {
 	int ret = 0;
+	char * defaultEntryName = "default";
 
 	if (max_entries < 0 || max_entries > 65535 || max_size < 0 || max_size
 			> 65535) // Aunque ya es un unsigned short
 		return -EINVAL;
 
+	printk(KERN_INFO "FifoProc: Creando directorio /proc/fifo\n");
 	fifo_dir = proc_mkdir("fifo", NULL);
+	printk(KERN_INFO "FifoProc: Directorio creado correctamente\n");
 
-	if (!fifo_dir)
+	if (fifo_dir == NULL)
 		return -ENOMEM;
 
-	ret = createProc("default", 1);
+	ret = createProc(defaultEntryName, 0);
 	printk(KERN_INFO "FifoProc: Entrada FIFO por defecto construida.\n");
 
 	if (ret < 0) {
@@ -472,6 +513,8 @@ int fifo_init(void) {
 		remove_proc_entry("fifo", NULL);
 		return -ENOMEM;
 	}
+
+	INIT_LIST_HEAD(&entrylist);
 
 	printk(KERN_INFO "FifoProc: Modulo cargado.\n");
 
