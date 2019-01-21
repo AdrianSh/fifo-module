@@ -41,6 +41,8 @@ __attribute__((section("__versions"))) = {
 	{ 0xb5419b40, __VMLINUX_SYMBOL_STR(_copy_from_user) },
 	{ 0x88db9f48, __VMLINUX_SYMBOL_STR(__check_object_size) },
 	{ 0x6dc6dd56, __VMLINUX_SYMBOL_STR(down) },
+	{ 0x6cc70db7, __VMLINUX_SYMBOL_STR(try_module_get) },
+	{ 0xc366f412, __VMLINUX_SYMBOL_STR(module_put) },
 	{ 0x78e739aa, __VMLINUX_SYMBOL_STR(up) },
 	{ 0x27e1a049, __VMLINUX_SYMBOL_STR(printk) },
 	{ 0xe0afe59e, __VMLINUX_SYMBOL_STR(down_interruptible) },

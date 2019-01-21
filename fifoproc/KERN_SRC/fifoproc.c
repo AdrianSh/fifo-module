@@ -184,6 +184,9 @@ static int fifoproc_open(struct inode *inode, struct file *file) {
 
 	up(&(private_data->mtx));
 
+	try_module_get(THIS_MODULE);
+	printk(KERN_INFO "FifoProc-read: referenciando modulo en uso!\n");
+
 	return 0;
 }
 
@@ -244,17 +247,18 @@ static ssize_t fifoproc_write(struct file *file, const char __user *buf,
 static ssize_t fifoproc_read(struct file *file, char __user *buf, size_t len,
 		loff_t *off) {
 	proc_required_data* private_data = (proc_required_data*) PDE_DATA(file->f_inode);
-
 	int bytes_extracted;
 	char kbuffer[max_size];
+
 
 	if (len > max_size || len > max_size) {
 		return -ENOSPC;
 	}
 
 	/* "Adquiere" el mutex */
-	if (down_interruptible(&(private_data->mtx)))
+	if (down_interruptible(&(private_data->mtx))){
 		return -EINTR;
+	}
 
 	/* espera a tener lo suficiente para leer */
 	while (kfifo_len(&(private_data->cbuffer)) < len
@@ -269,8 +273,9 @@ static ssize_t fifoproc_read(struct file *file, char __user *buf, size_t len,
 			return -EINTR;
 		}
 		/* "Adquiere" el mutex */
-		if (down_interruptible(&(private_data->mtx)))
+		if (down_interruptible(&(private_data->mtx))){
 			return -EINTR;
+		}
 
 	}
 
@@ -292,12 +297,14 @@ static ssize_t fifoproc_read(struct file *file, char __user *buf, size_t len,
 
 	up(&(private_data->mtx)); // unlock
 
-	if (bytes_extracted != len)
+	if (bytes_extracted != len){
 		return -EINVAL;
+	}
 
 	// Envio al consumidor lo leido
-	if (copy_to_user(buf, kbuffer, len))
+	if (copy_to_user(buf, kbuffer, len)){
 		return -EFAULT;
+	}
 
 	return len;
 }
@@ -332,6 +339,8 @@ static int fifoproc_release(struct inode * inodo, struct file * file) {
 	}
 
 	up(&(private_data->mtx)); // unlock
+
+	module_put(THIS_MODULE);
 
 	return 0;
 }
